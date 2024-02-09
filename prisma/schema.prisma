@@ -11,13 +11,21 @@ datasource db {
 }
 
 model Poll {
-  id        String   @id @default(uuid())
-  title     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now())
+  id         String       @id @default(uuid())
+  title      String
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @default(now())
+  options PollOption[]
 }
 
 //npx prisma migrate dev -> gera as tabelas e cria a migration
 // npx prisma studio -> ver as tabelas
 
+model PollOption {
+  id     String @id @default(uuid())
+  title  String
+  pollId String
 
+  poll   Poll   @relation(fields: [pollId], references: [id])
+
+}
