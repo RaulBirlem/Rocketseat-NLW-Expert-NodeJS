@@ -7,7 +7,7 @@ const app = fastify()
 
 const prisma = new PrismaClient()
 
-app.post("/polls", async (request) =>{
+app.post("/polls", async (request, reply) =>{
 
     const createPollBody = z.object({
         title: z.string()
@@ -21,7 +21,7 @@ app.post("/polls", async (request) =>{
         }
     })
 
-    return poll
+    return reply.status(201).send({pollId: poll.id})
 })
 
 
