@@ -1,6 +1,7 @@
 import z from "zod"
 import { prisma } from "../../lib/pisma"
 import { FastifyInstance } from "fastify"
+import { redis } from "../../lib/redis"
 
 export async function getPoll(app:FastifyInstance) {
  
@@ -29,9 +30,39 @@ app.get("/polls/:pollId", async (request, reply) =>{
         }
     })
 
-    
+    if(!poll){
+        return reply.status(400).send({message:"Enquete não encontrada!"})
+    }
 
-    return reply.send({poll})
+    const result = await redis.zrange(pollId, 0, -1, "WITHSCORES") /* retorna todas as pontuações */
+
+    const votes = result.reduce((obj,line,index)=>{
+
+        if(index % 2 == 0){
+            const score = result[index+1]
+
+            Object.assign(obj, {[line]: Number(score)})
+        }
+
+        return obj
+
+    },{} as Record<string,number>)
+
+/*     console.log(votes)
+ */
+    return reply.send({
+        poll: {
+            id:poll.id,
+            title:poll.title,
+            options: poll.options.map(option => {
+                return {
+                    id:option.id,
+                    title:option.title,
+                    score: (option.id in votes ? votes[option.id] : 0)
+                }
+            })
+        }
+    })
 })
 
 
