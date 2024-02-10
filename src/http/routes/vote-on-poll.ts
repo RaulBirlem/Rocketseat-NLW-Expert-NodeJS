@@ -22,6 +22,35 @@ app.post("/polls/:pollId/votes", async (request, reply) =>{
     let { sessionId } = request.cookies
     /*let sessionId = request.cookies.sessionId */
 
+
+    if(sessionId){
+        const userPreviousVoteOnPoll = await prisma.vote.findUnique({
+            where: {
+                sessionId_pollId:{
+                    sessionId,
+                    pollId,
+                }
+            }
+        })
+
+        if(userPreviousVoteOnPoll && userPreviousVoteOnPoll.pollOptionId != pollOptionId){
+/* se já votou  e o voto for diferente apagar voto anterior */            
+
+            await prisma.vote.delete({
+                where: {
+                    id:userPreviousVoteOnPoll.id,
+                }
+            })
+
+        } else if(userPreviousVoteOnPoll){
+//se já votou na enquete e na mesma opção:
+            return reply.status(400).send({message:"Você já votou nessa enquete!"})
+
+        }
+    }
+
+
+
     if(!sessionId){
         sessionId = randomUUID()
 
@@ -33,9 +62,15 @@ app.post("/polls/:pollId/votes", async (request, reply) =>{
         })
     }
 
-    
+    await prisma.vote.create({
+        data: {
+            sessionId,
+            pollId,
+            pollOptionId,
+        }
+    })
 
-    return reply.status(201).send({sessionId})
+    return reply.status(201).send()
 })
 
 
