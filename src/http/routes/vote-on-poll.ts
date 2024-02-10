@@ -3,6 +3,7 @@ import { randomUUID } from "crypto"
 import { prisma } from "../../lib/pisma"
 import { FastifyInstance } from "fastify"
 import { redis } from "../../lib/redis"
+import { voting } from "../../utils/voting-pub-sub"
 
 export async function voteOnPoll(app:FastifyInstance) {
  
@@ -34,7 +35,7 @@ app.post("/polls/:pollId/votes", async (request, reply) =>{
             }
         })
 
-        if(userPreviousVoteOnPoll && userPreviousVoteOnPoll.pollOptionId != pollOptionId){
+        if(userPreviousVoteOnPoll && userPreviousVoteOnPoll.pollOptionId !== pollOptionId){
 /* se já votou  e o voto for diferente apagar voto anterior */            
 
             await prisma.vote.delete({
@@ -44,7 +45,17 @@ app.post("/polls/:pollId/votes", async (request, reply) =>{
             })
 
             //decrement rank
-            await redis.zincrby(pollId,-1, userPreviousVoteOnPoll.pollOptionId)/* reduz a pontuação do anterior não do voto novo */
+            const votes = await redis.zincrby(pollId,-1, userPreviousVoteOnPoll.pollOptionId)/* reduz a pontuação do anterior não do voto novo */
+
+            voting.publish(pollId, {
+                pollOptionId:userPreviousVoteOnPoll.pollOptionId,
+                votes:Number(votes),
+            })
+
+
+
+
+
 
         } else if(userPreviousVoteOnPoll){
 //se já votou na enquete e na mesma opção:
@@ -76,11 +87,14 @@ app.post("/polls/:pollId/votes", async (request, reply) =>{
 
 
 
-    await redis.zincrby(pollId, 1, pollOptionId)/* incrementa em 1 o ranking dessa enquete */
+    const votes = await redis.zincrby(pollId, 1, pollOptionId)/* incrementa em 1 o ranking dessa enquete */
+
+
+    voting.publish(pollId, {/* publicar mensagem */
+        pollOptionId,
+        votes:Number(votes),
+    })
 
     return reply.status(201).send()
-})
-
-
-
+    })
 }
